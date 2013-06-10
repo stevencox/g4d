@@ -86,7 +86,6 @@ class DebugAPI (object):
 
     def get_job_details (self, path, job):
         result = None
-        print job
         job_name = job ['exec_job_id']
         pat_submit  = re.compile ('^(\d+) {0} SUBMIT (\d+.\d+).*$'.format (job_name))
         pat_execute = re.compile ('^(\d+) {0} EXECUTE.*$'.format (job_name))
@@ -96,6 +95,7 @@ class DebugAPI (object):
         path = os.path.join (path, 'output')
         jobstatus = os.path.join (path, '*-jobstate.log')
         stats = glob.glob (jobstatus)
+        job ['status'] = 'blank'
         if len (stats) > 0:
             with open (stats[0], 'r') as stream:
                 for line in stream:
@@ -117,6 +117,7 @@ class DebugAPI (object):
                                 match = pat_failure.match (line)
                                 if match:
                                     job ['status'] = 'failed'
+        print "===========================================%s " % job
 
     def get_dag_exitcode (self, path):
         result = None
@@ -151,6 +152,7 @@ class DebugAPI (object):
         db = self.get_db (flow)
         jobs = db.write_table ('job')
         #jobs = table ['jobs']
+        print "========================================"
         for job in jobs:
             self.get_job_details (os.path.dirname (flow), job)
         return jobs #table

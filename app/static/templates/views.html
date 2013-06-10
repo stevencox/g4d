@@ -1,0 +1,86 @@
+<div class="views" style="display:none">
+
+  <!-- flows -->
+  <textarea id="v_flows" class="template">
+    <table class="flowroot" cellpadding="0">
+      <tr class="flowhead">
+	<td>Workflows</td>
+      </tr>
+      {{#flows}}
+      <tr class="flowcontext">
+	<td>
+	  <table class="flowgroup" cellpadding="0">
+	    <tr class="flow">
+	      <td width="40%" class="flowpath">{{name}}</td>
+	      <td width="5%">
+		<img class="status_img" src="/static/img/{{exit_status}}.jpg"></img>
+	      </td>
+	      <td width="15%" class="flow_jobs" flow="{{full_path}}">
+		<p class="flow_hov">Jobs</p>
+	      </td>
+	      <td width="20%">
+		<p class="flow_hov art_dag" file="*.dag">DAG</p>
+	      </td>
+	      <td width="20%">
+		<p class="flow_hov art_dagmanout" file="*.dagman.out">Log</p>
+	      </td>
+	    </tr>
+	    <tr>
+	      <td class="flowdata" colspan="5"></td>
+	    </tr>
+	  </table>
+	</td>
+      </tr>		      
+      {{/flows}}
+    </table>
+  </textarea>
+
+  <!-- jobs -->
+  <textarea id="v_jobs" class="template">
+    <table class="jobs dynamicdata" cellpadding="0">
+      <tr class="job_header">
+	<th>Name</th>
+	<th>Status</th>
+	<th>Condor Submit File</th>
+	<th>Executable</th>
+	<th>StdErr</th>
+	<th>StdOut</th>
+	<th>XML</th>
+      </tr>
+      {{#jobs}}
+      <tr flow="{{exec_job_id}}">
+	<td width="15%" class="job_execjobid">{{exec_job_id}}</td>
+	<td width="15%" class="job_status">
+	  <img class="status_img" src="/static/img/{{status}}.jpg"></img>
+	</td>
+	<td width="15%" ><p class="art_submitfile" file="{{submit_file}}"/></td>
+	<td width="15%" ><p class="art_executable" file="{{executable}}"/></td>
+	<td width="15%" ><p class="art_stderr"     file="{{exec_job_id}}.err"/></td>
+	<td width="15%" ><p class="art_stdout"     file="{{exec_job_id}}.out"/></td>
+	<td width="10%" ><p class="art_xml"        file="*xml"/></td>
+      </tr>
+      {{/jobs}}
+      <tr>
+	<td colspan="7" class="jobdata"></td>
+      </tr>
+    </table>
+  </textarea>
+
+  <!-- file -->
+  <textarea id="v_file" class="template">
+    <pre class="dynamicdata"><code>{{file}}</code></pre>
+  </textarea>
+
+  <!-- legend -->
+  <textarea id='v_legend' class="template">
+    <div id="legend">
+      {{#legend_items}}
+      <div>
+	<div class="legend">{{name}}</div>
+	<img class="status_img legend_img" src="/static/img/{{imageName}}.jpg"></img>
+      </div>
+      {{/legend_items}}
+    </div>
+  </textarea>
+
+</div>
