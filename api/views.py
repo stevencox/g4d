@@ -1,34 +1,26 @@
 import json
 import logging
-from django.template import Context, loader
+
 from django.conf import settings
-
-from g4d.view.common import VUtil
+from django.template import Context, loader
 from g4d.monitor.core import DebugAPI
+from g4d.view.common import VUtil
+from g4d.model.mongo import MongoModel
 
-'''
-http://localhost:8080/api/workflows
-http://localhost:8080/api/jobs?workflow=one/07a49762-2f1e-41e9-ae50-0220e842031a/HelloWorld.stampede.db
-http://localhost:8080/api/job_instances?workflow=one/07a49762-2f1e-41e9-ae50-0220e842031a/HelloWorld.stampede.db&job_id=1
-http://localhost:8080/api/submitfile?file=one/07a49762-2f1e-41e9-ae50-0220e842031a/CatCLI_3.sub
-http://localhost:8080/api/dagman?file=one/07a49762-2f1e-41e9-ae50-0220e842031a/*.dag
-http://localhost:8080/api/dagmanout?file=one/07a49762-2f1e-41e9-ae50-0220e842031a/*.dagman.out
-http://localhost:8080/api/dagmanout?file=one/07a49762-2f1e-41e9-ae50-0220e842031a/*xml
-'''
+mongo = MongoModel ()
 
 logger = logging.getLogger (__name__)
 
 debugAPI = DebugAPI (settings.FLOW_ROOT)
 
-def workflows (pag = None):
+def flows (request, name_filter = None, status_filter = None, pag = None):
     return VUtil.get_json_response ({
-            'flows' : debugAPI.get_workflows ()
+            'flows' : debugAPI.get_workflows (name_filter, status_filter)
             })
 
-def jobs (request, pag = None):
-    workflow = request.REQUEST ['workflow'] 
+def jobs (request, flow, pag = None):
     return VUtil.get_json_response ({
-            'jobs' : debugAPI.get_jobs (workflow)
+            'jobs' : debugAPI.get_jobs (flow)
             })
  
 def job_instances (request, pag = None):
@@ -38,19 +30,17 @@ def job_instances (request, pag = None):
             'job_instances' : debugAPI.get_job_instances (workflow, job_id)
             })
     
-def get_file (request, pattern = False, tag = 'file', pag = None):
-    file_name = request.REQUEST ['file']
-    if 'pattern' in request.REQUEST:
-        pattern = request.REQUEST ['pattern']
-
+def get_file (request, pattern, page, tag):
     return VUtil.get_json_response ({
-            tag : debugAPI.get_file (file_name, pattern)
+            'file' : debugAPI.get_file (tag, pattern)
             })
 
-def submitfile (request, pag = None):
-    return get_file (request, tag = 'submitfile')
-def dagman (request, pag = None):
-    return get_file (request, pattern = True, tag = 'dagman')
-def dagmanout (request, pag = None):
-    return get_file (request, pattern = True, tag = 'dagmanout')
-    
+def add_flow (request, flow_name):
+    return VUtil.get_json_response ({
+            'fid' : str (mongo.add_flow (flow_name))
+            })
+
+def list_flows (request, current_id, target_page, page_size):
+    return VUtil.get_json_response ({
+            'flows' : mongo.list_flows (current_id, int(target_page), int(page_size))
+            })

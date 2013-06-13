@@ -54,6 +54,7 @@ G4D.prototype.register = function (r) {
  */
 G4D.prototype.configure = function () {
     hljs.initHighlightingOnLoad ();
+    $('#title').on ('click', g4d.init);
     gjax.get ('/static/templates/views.html',
 	      function (text) {
 		  g4d.templates = {};
@@ -68,16 +69,27 @@ G4D.prototype.configure = function () {
 	      });
 };    
 /**
- * 
+ * Render the initial screen.
  */
 G4D.prototype.init = function () {
-    g4d.controller ('/api/workflows', 'v_flows', '#main',
+
+    var qs = [];
+    var name_filter = $('#workflow_name_filter').val ();
+    var status_filter = $('#workflow_status_filter').val ();
+    qs.push (name_filter ? name_filter : '0');
+    qs.push (status_filter ? status_filter : '0');
+    var service = '/api/flows';
+    service = service + '/' + qs.join ('/');
+    g4d.controller (service, 'v_flows', '#main',
 		    [
 			[ '.flow .flow_jobs',        'click', g4d.getJobs ],
 			[ '.flow .art_dag',          'click', g4d.displayFlowData ],
 			[ '.flow .art_dagmanout',    'click', g4d.displayFlowData ]
 		    ],
 		    function () {
+			$('#workflow_name_filter').val (name_filter);
+			$('#workflow_status_filter').val (status_filter);
+			
 			$('.flowgroup').hover (function (e) {
 			    $(this).find ('.flow_hov').show ();
 			},
@@ -85,25 +97,33 @@ G4D.prototype.init = function () {
 						   $(this).find ('.flow_hov').hide ();
 					       });
 		    });
-    g4d.render ({
-	legend_items : [
-	    { name : "Submitted",  imageName : "submitted" },
-	    { name : "Running",    imageName : "running" },
-	    { name : "Succeeded",  imageName : "succeeded" },
-	    { name : "Failed",     imageName : "failed" },
-	    { name : "Held",       imageName : "held" },
-	    { name : "Terminated", imageName : "terminated" },
-	]
-    }, 'v_legend', '#footer');
+    g4d.render ({ legend_items : g4d.getLegend () }, 'v_legend', '#footer');
 };
+/** 
+ * Get legend elements
+ */
+G4D.prototype.getLegend = function () {
+    var legend = [];
+    var names = [ "Submitted", "Running", "Succeeded", "Failed", "Held", "Terminated" ];
+    for (var c = 0; c < names.length; c++) {
+	var name = names [c];
+	legend.push ({ name : name, imageName : name.toLowerCase () });
+    }
+    return legend;
+};
+/**
+ * Get and render workflow jobs.
+ */
 G4D.prototype.getJobs = function (e) {
     $('.jobdata pre').remove ();
     $('.flowdata .dynamicdata').remove ();
     var flow = $(this).attr ('flow');
     flow = flow.substring (1);
     var active = [ '.flowdata .jobs p' ];
-    var service = '/api/jobs?workflow=' + flow;
-    g4d.controller (service, 'v_jobs', $(this).parent().parent().find ('.flowdata'),
+    var service = '/api/jobs/' + flow;
+    $('.flow .selected').removeClass ('selected');
+    $(this).addClass ('selected');
+    g4d.controller (service, 'v_jobs', $(this).parent().parent().parent().find ('.flowdata'),
 		    g4d.generateEventSubscriptions (active),
 		    function () {
 			for (var c = 0; c < active.length; c++) {
@@ -113,16 +133,29 @@ G4D.prototype.getJobs = function (e) {
 			//d3model (x);
 		    });
 };
+/**
+ * Display workflow data.
+ */
 G4D.prototype.displayFlowData = function (e) {
+    $('.flow .selected').removeClass ('selected');
+    $(e.target).addClass ('selected');
     $('.jobdata pre').remove ();
-    $('.flowdata .dynamicdata').remove ();
+    $('.flowdata .dynamicdata').remove ();    
     g4d.getArtifact (e, '.flowgroup', '.flowdata');
 };
+/**
+ * Display job data.
+ */
 G4D.prototype.displayJobData = function (e) {
+    $('.jobrow .selected').removeClass ('selected');
+    $(e.target).addClass ('selected');
     g4d.getArtifact (e, '.jobs', '.jobdata');
 };
-// firefox and colspan.
-// http://www.dynamicdrive.com/forums/showthread.php?55999-Toggle-table-row-FireFox-ignoring-colspan
+/**
+ * Get an artifact from the server and render it to the specified selector.
+ *
+ * firefox and colspan:  http://www.dynamicdrive.com/forums/showthread.php?55999-Toggle-table-row-FireFox-ignoring-colspan
+ */
 G4D.prototype.getArtifact = function (e, parent, display) {
     var classNames = $(e.target).attr ('class').split (' ');
     for (var c = 0; c < classNames.length; c++) {
@@ -134,7 +167,7 @@ G4D.prototype.getArtifact = function (e, parent, display) {
 	    flow = dirname (flow);
 	    var file = flow + '/' + $(e.target).attr ('file');
 	    var selector = $(e.target).closest(parent).find (display);
-	    var service = '/api/artifact?file=' + file;
+	    var service = '/api/artifact/0/0/' + file;
 	    if (file.indexOf ('*') > -1) {
 		service = service + '&pattern=True';
 	    }
@@ -153,6 +186,9 @@ G4D.prototype.getArtifact = function (e, parent, display) {
 	}
     }
 };
+/**
+ * Get the extension of a resource.
+ */
 G4D.prototype.getExtension = function (text) {
     var result = null;
     text = basename (text);
@@ -162,6 +198,9 @@ G4D.prototype.getExtension = function (text) {
     }
     return result;
 };
+/**
+ * Generate a list of event subscriptions.
+ */
 G4D.prototype.generateEventSubscriptions = function (selectors) {
     var subscriptions = [];
     for (var c = 0; c < selectors.length; c++) {
@@ -202,7 +241,15 @@ var x = {
 };
 
 var g4d = new G4D ();
-
 $(function () {
     g4d.configure ();
 });
+
+
+/*
+ d3: http://mbostock.github.io/d3/talk/20111116/force-collapsible.html
+
+ datatables: http://www.datatables.net/index
+    cdn: http://www.asp.net/ajaxlibrary/CDNjQueryDataTables194.ashx
+ node.js: 
+*/

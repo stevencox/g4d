@@ -4,19 +4,36 @@
   <textarea id="v_flows" class="template">
     <table class="flowroot" cellpadding="0">
       <tr class="flowhead">
-	<td>Workflows</td>
+	<td width="10%" class="flowhead-title">Workflows</td>
+	<td width="20%" class="filter">
+	  Name
+	  <input type="text" id="workflow_name_filter"></input>
+	</td>
+	<td width="20%" class="filter">
+	  Status
+	  <select id="workflow_status_filter">
+	    <option value=""></option>
+	    <option value="submitted">Submitted</option>
+	    <option value="running">Running</option>
+	    <option value="succeeded">Succeeded</option>
+	    <option value="failed">Failed</option>
+	    <option value="held">Held</option>
+	    <option value="terminated">Terminated</option>
+	  </select>
+	</td>
+	<td width="50%"></td>
       </tr>
       {{#flows}}
       <tr class="flowcontext">
-	<td>
+	<td colspan="4">
 	  <table class="flowgroup" cellpadding="0">
 	    <tr class="flow">
 	      <td width="40%" class="flowpath">{{name}}</td>
 	      <td width="5%">
 		<img class="status_img" src="/static/img/{{exit_status}}.jpg"></img>
 	      </td>
-	      <td width="15%" class="flow_jobs" flow="{{full_path}}">
-		<p class="flow_hov">Jobs</p>
+	      <td width="15%">
+		<p class="flow_jobs flow_hov" flow="{{full_path}}">Jobs</p>
 	      </td>
 	      <td width="20%">
 		<p class="flow_hov art_dag" file="*.dag">DAG</p>
@@ -48,7 +65,7 @@
 	<th>XML</th>
       </tr>
       {{#jobs}}
-      <tr flow="{{exec_job_id}}">
+      <tr class="jobrow" flow="{{exec_job_id}}">
 	<td width="15%" class="job_execjobid">{{exec_job_id}}</td>
 	<td width="15%" class="job_status">
 	  <img class="status_img" src="/static/img/{{status}}.jpg"></img>
@@ -63,6 +80,31 @@
       <tr>
 	<td colspan="7" class="jobdata"></td>
       </tr>
+    </table>
+  </textarea>
+
+  <!-- table -->
+  <textarea id="v_dtable" class="template">
+    <table id="table_id">
+      <thead>
+        <tr>
+          <th>Column 1</th>
+          <th>Column 2</th>
+          <th>etc</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Row 1 Data 1</td>
+          <td>Row 1 Data 2</td>
+          <td>etc</td>
+        </tr>
+        <tr>
+          <td>Row 2 Data 1</td>
+          <td>Row 2 Data 2</td>
+            <td>etc</td>
+        </tr>
+      </tbody>
     </table>
   </textarea>
 

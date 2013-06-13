@@ -7,7 +7,7 @@ import os
 import sys
 import argparse
 import logging
-import fnmatch 
+import fnmatch
 import string
 import sqlite3
 import json 
@@ -33,7 +33,6 @@ class Util (object):
         return datetime.now ().strftime ("%FT%H:%M:%SZ")
 
     def rm_all (self, dirname, pattern):
-        #logger.debug ("rm_all: %s %s", dirname, pattern)
         file_pattern = os.path.join (dirname, pattern)
         for file_name in glob.glob (file_pattern):
             logger.info ("  --Removing %s", file_name)
@@ -66,18 +65,34 @@ class DebugAPI (object):
         db_path = os.path.join (self.directory, flow)
         return StampedeDB (db_path)
 
-    def get_workflows (self):
+    def get_workflows (self, name_filter=None, status_filter=None):
         workflows = []
+        name_filter_re = re.compile (name_filter) if name_filter and name_filter != '0' else None
+        status_filter_re = re.compile (status_filter) if status_filter and status_filter != '0' else None
         for root, dirnames, filenames in os.walk (self.directory):
             for idx, file_name in enumerate (fnmatch.filter (filenames, '*.stampede.db')):
                 full_path = os.path.join (root, file_name)
-                exit_code, exit_status = self.get_dag_exitcode (os.path.dirname (full_path))
+                
+                if name_filter_re:
+                    match = name_filter_re.search (full_path)
+                    if not match:
+                        continue
+
+                db_path = full_path.replace (self.directory, '')[1:]
+                db = self.get_db (db_path)
+                exit_code = db.get_workflow_status ()
+                exit_status = self.get_exit_status (exit_code)
+
+                if status_filter_re:
+                    match = status_filter_re.search (exit_status)
+                    if not match:
+                        continue
+
                 full_path = full_path.replace (self.directory, '')
                 logger.error (full_path)
-                #workflow_dir = os.path.dirname (full_path)
                 workflow_name = full_path.replace ('.stampede.db', '') 
                 workflows.append ({
-                        'name'        : workflow_name, #workflow_dir,
+                        'name'        : workflow_name,
                         'full_path'   : full_path,
                         'exit_code'   : exit_code,
                         'exit_status' : exit_status
@@ -99,7 +114,6 @@ class DebugAPI (object):
         if len (stats) > 0:
             with open (stats[0], 'r') as stream:
                 for line in stream:
-                    print line
                     match = pat_submit.match (line)
                     if match:
                         job ['status'] = 'submitted'
@@ -117,45 +131,28 @@ class DebugAPI (object):
                                 match = pat_failure.match (line)
                                 if match:
                                     job ['status'] = 'failed'
-        print "===========================================%s " % job
 
-    def get_dag_exitcode (self, path):
+    def get_exit_status (self, exit_code):
         result = None
-        result_code = None
-        pat_finished = re.compile ('^.*DAGMAN_FINISHED (\d+).*$')
-        pat_sigterm = re.compile ('^.*SIGTERM\. .*$')
-        path = os.path.join (path, 'output')
-        jobstatus = os.path.join (path, '*-jobstate.log')
-        stats = glob.glob (jobstatus)
-        if len (stats) > 0:
-            with open (stats[0], 'r') as stream:
-                for line in stream:
-                    match = pat_finished.match (line)
-                    if match:
-                        result = int (match.group (1))
-                    else:
-                        match = pat_sigterm.match (line)
-                        if match:
-                            result = -100
-        if result == 0:
-            result_status = 'succeeded'
-        elif result > 0:
-            result_status = 'failed'
-        elif result == -100:
-            result_status = 'terminated'
+        if exit_code == 0:
+            result = 'succeeded'
+        elif exit_code > 0:
+            result = 'failed'
+        elif exit_code == -100:
+            result = 'terminated'
         else:
-            result_status = 'running'
-
-        return result, result_status
+            result = 'running'
+        return result
 
     def get_jobs (self, flow):
+        '''
+        select exec_job_id, exitcode, state from job, job_instance, jobstate where job.job_id == job_instance.job_id and job_instance.job_id == jobstate.job_instance_id;
+        '''
         db = self.get_db (flow)
         jobs = db.write_table ('job')
-        #jobs = table ['jobs']
-        print "========================================"
         for job in jobs:
             self.get_job_details (os.path.dirname (flow), job)
-        return jobs #table
+        return jobs
 
     def get_job_instances (self, flow, job_id):
         db = self.get_db (flow)
@@ -171,6 +168,7 @@ class DebugAPI (object):
         if file_name.startswith ('/'):
             file_name = file_name [1:]
         text = None
+        logger.debug ("get_file: %s %s", file_name, pattern)
         try:
             text = self.u.read_file (file_name, self.directory, pattern = pattern)
         except IndexError as e:
@@ -192,6 +190,16 @@ class StampedeDB (object):
         for table_name in table_names:
             all_recs [table_name] = self.write_table (table_name)            
         print json.dumps (all_recs, indent = 2, sort_keys = True)
+        
+    def get_workflow_status (self):
+        status = None
+        rows = self.cur.execute ("select status from workflowstate where state = 'WORKFLOW_TERMINATED'")
+        for row in rows.fetchall ():
+            if row [0] is None:
+                continue
+            status = row [0]
+            break
+        return status
 
     def write_table (self, table_name):
         records = []
@@ -318,11 +326,20 @@ class DAGDebug (object):
     def __init__(self):
         self.u = Util ()
 
+        '''
+        loglevel = "debug"
+        numeric_level = getattr (logging, loglevel.upper (), None)
+        assert isinstance (numeric_level, int), "Undefined log level: %s" % loglevel
+        logging.basicConfig (level=numeric_level, format='%(asctime)-15s %(message)s')
+        '''
+
     def prepare (self, dir_name):
         for root, dirnames, filenames in os.walk (dir_name):
             for idx, file_name in enumerate (fnmatch.filter (filenames, '*.dag')):
                 dag_file = os.path.join (root, file_name)
                 dagdir = os.path.dirname (dag_file)        
+
+                logger.debug (" *** ----> Preparing : %s", dagdir)
                 self.write_statbp (dag_file)
                 self.write_braindump (dag_file)
                 self.write_properties (dag_file, dagdir)
@@ -343,8 +360,6 @@ class DAGDebug (object):
                 outbound_text = '\n'.join (normalized_dag)
 
                 if incoming_text != outbound_text:
-                    #logger.debug ("in< %s", incoming_text)
-                    #logger.debug ("out> %s", outbound_text)
                     os.rename (dag_file, '%s.orig' % dag_file)
                     with open (dag_file, 'w') as stream:
                         stream.write (outbound_text)
@@ -394,8 +409,8 @@ user {3}
             user = os.environ ['USER']
             stream.write (braindump_text.format (wf_uuid, os.path.basename (dag).replace ('.dag', ''), dirname, user))
 
-    def monitor (self):
-        for root, dirnames, filenames in os.walk ("."):
+    def monitor (self, flow_root = "."):
+        for root, dirnames, filenames in os.walk (flow_root):
             for idx, dagmanout in enumerate (fnmatch.filter (filenames, '*.dagman.out')):
                 logger.info ("Scanning %s @ %s", dagmanout, root)
                 dagdir = root
@@ -405,11 +420,10 @@ user {3}
                 curdir = os.getcwd ()
                 os.chdir (dagdir)
 
-
-                logger.error("-----------------> %s" % os.getcwd ())
+                logger.debug  ("-----------------> %s" % os.getcwd ())
                 command = 'pegasus-monitord {0} {1} --conf=pegasus.properties --no-daemon --db-stats --output-dir=output --no-notifications'
                 #command = 'pegasus-monitord {0} {1} --conf=pegasus.properties --db-stats --output-dir=output --no-notifications'
-                command = command.format (dagmanout, '-v -v -v -v')
+                command = command.format (dagmanout, '') #'-v -v -v -v')
                 logger.info ("Running %s", command)
                 os.system (command)
                 os.chdir (curdir)
@@ -438,21 +452,6 @@ user {3}
                     logger.debug ("Exporting stampede database: %s", database)
                     exporter = StampedeDB (database)
                     exporter.run ()
-
-                '''
-                job_runs = []
-                versioned_files = os.path.join (dagdir, '*.000')
-                has_multiple_runs = glob.glob (versioned_files)
-                if len (has_multiple_runs) > 0:
-                    for instance_num in range (0, 100):
-                        instance_tag = "{0}".format (instance_num).zfill (3)
-                        for job_key in jobs:
-                            job = jobs [job_key]
-                            out_file = os.path.join (dagdir, job ['output'])
-                            if os.path.exists (out_file):
-                                pass
-                                '''
-
                 dagmetas.append (self.get_dagmeta (dag, dagdir, dagout, jobstate_log, jobs))
         self.u.write_json (dagmetas, 'dagmeta.js', preamble = 'var dagmeta = ')
 
@@ -491,7 +490,8 @@ user {3}
         if args.write:
             self.write_output ()
 
-#app = DAGDebug ()
-#app.main ()
+if __name__ == "__main__":
+    app = DAGDebug ()
+    app.main ()
 
 

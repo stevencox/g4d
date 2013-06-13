@@ -1,8 +1,16 @@
 # Django settings for grayson4dagman project.
 
+
+import os
+import djcelery
+djcelery.setup_loader()
+
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
+APP_ROOT = os.path.join (os.environ['HOME'], 'dev/g4d/var/data')
+APP_DATA = os.path.join (APP_ROOT, 'data')
+APP_DATA_DB = os.path.join (APP_ROOT, 'app.db')
 FLOW_ROOT = '/home/scox/app/mapseq-distribution-0.1.17-SNAPSHOT/2013-05-24/HelloWorld'
 
 ADMINS = (
@@ -13,8 +21,8 @@ MANAGERS = ADMINS
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
-        'NAME': '',                      # Or path to database file if using sqlite3.
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME'  :   APP_DATA_DB,
         # The following settings are not used with sqlite3:
         'USER': '',
         'PASSWORD': '',
@@ -22,6 +30,17 @@ DATABASES = {
         'PORT': '',                      # Set to empty string for default.
     }
 }
+'''
+'default': {
+'ENGINE': 'django.db.backends.', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+'NAME': '',                      # Or path to database file if using sqlite3.
+# The following settings are not used with sqlite3:
+'USER': '',
+'PASSWORD': '',
+'HOST': '',                      # Empty for localhost through domain sockets or '127.0.0.1' for localhost through TCP.
+'PORT': '',                      # Set to empty string for default.
+}
+'''
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
@@ -123,6 +142,9 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
+
+    'djcelery',
+
     'app',
     'api',
 
@@ -137,7 +159,7 @@ INSTALLED_APPS = (
 # the site admins on every HTTP 500 error when DEBUG=False.
 # See http://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
-LOGGING = {
+LOGGING = { 
     'version': 1,
     'disable_existing_loggers': False,
     'filters': {
@@ -148,7 +170,7 @@ LOGGING = {
     'formatters' : {
         'simple': {
             'format': '%(levelname)s %(message)s'
-            },
+            }
         },
     'handlers': {
         'mail_admins': {
@@ -161,6 +183,11 @@ LOGGING = {
             'class':'logging.StreamHandler',
             'formatter': 'simple'
             },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'var/log/app.log',
+            }
         },
     'loggers': {
         'django.request': {
@@ -168,9 +195,29 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': True,
             },
+        'api.tasks' : {
+            'handlers': [ 'console' ],
+            'level': 'DEBUG'
+            },
+        'api.view' : {
+            'handlers': [ 'console' ],
+            'level': 'DEBUG'
+            },
+        'g4d.monitor.core' : {
+            'handlers': [ 'console', 'file' ],
+            'level': 'DEBUG'
+            },
         'monitor.views': {
             'handlers': [ 'console' ],
             'level': 'DEBUG'
             },
         }
     }
+
+APP_DATA_CACHE = os.path.join (APP_DATA, 'app.cache')
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': APP_DATA_CACHE,
+    }
+}
