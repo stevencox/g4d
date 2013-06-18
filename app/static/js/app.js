@@ -169,7 +169,7 @@ G4D.prototype.getArtifact = function (e, parent, display) {
 	    var selector = $(e.target).closest(parent).find (display);
 	    var service = '/api/artifact/0/0/' + file;
 	    if (file.indexOf ('*') > -1) {
-		service = service + '&pattern=True';
+		service = service + '?pattern=True';
 	    }
 	    g4d.controller (service, 'v_file', selector,
 			    [],
